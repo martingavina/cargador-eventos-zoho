@@ -9,12 +9,12 @@ Esta skill abre una herramienta visual (formulario) para cargar uno o varios eve
 
 ## Configuración (editada al publicar cada versión)
 
-- `LOCAL_VERSION = 1.0.0`  (versión de ESTA copia instalada del plugin; coincide con plugin.json)
+- `LOCAL_VERSION = 1.0.1`  (versión de ESTA copia instalada del plugin; coincide con plugin.json)
 - `MARKETPLACE_RAW_URL = https://raw.githubusercontent.com/martingavina/cargador-eventos-zoho/main/.claude-plugin/marketplace.json`  (URL "raw" del marketplace.json publicado)
 
 ## Paso 1 — Chequeo de versión (obligatorio, primero)
 
-1. Hacé `web_fetch` de `MARKETPLACE_RAW_URL`.
+1. Hacé `web_fetch` de `MARKETPLACE_RAW_URL`, pero agregándole al final `?nocache=` seguido de un número al azar (por ejemplo, la hora actual en milisegundos) para evitar el cache de GitHub.
 2. Si la descarga funciona, parseá el JSON y buscá dentro de `plugins` la entrada cuyo `name` sea `cargador-eventos-zoho`; tomá su campo `version` como `REMOTE_VERSION`.
 3. Compará `REMOTE_VERSION` contra `LOCAL_VERSION` como semver (compará MAJOR, luego MINOR, luego PATCH, numéricamente).
 4. Si `REMOTE_VERSION` es MAYOR que `LOCAL_VERSION` (hay actualización):
