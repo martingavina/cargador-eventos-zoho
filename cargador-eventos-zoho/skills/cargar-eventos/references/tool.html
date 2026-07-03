@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cargador de eventos · Zoho CRM</title>
+<style>
+  :root{ color-scheme: light; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:#f6f6f4; color:#1f1d1a; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; padding:22px; }
+  .wrap{ max-width:820px; margin:0 auto; }
+  .card{ background:#fff; border:1px solid #e4e2dd; border-radius:14px; padding:22px; }
+  .title{ font-size:19px; font-weight:700; margin:0; letter-spacing:-.01em; }
+  .sub{ font-size:13px; color:#6b675f; margin:6px 0 0; line-height:1.5; }
+  .ver{ font-size:11px; color:#a29d92; margin-top:4px; }
+  .warn-conn{ display:none; font-size:12.5px; color:#8a4b00; background:#fff6e8; border:1px solid #f0dcc0; border-radius:9px; padding:9px 12px; margin-top:12px; }
+  .block{ border:1px solid #e4e2dd; border-radius:12px; padding:14px 16px 16px; margin-top:16px; position:relative; }
+  .block.dup{ border-color:#e0a94b; box-shadow:0 0 0 2px rgba(224,169,75,.18); }
+  .block-h{ display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+  .block-t{ font-size:13px; font-weight:700; }
+  .rm{ font-size:12px; color:#c0392b; background:none; border:none; cursor:pointer; font-weight:600; }
+  .rm:disabled{ color:#c9c6bf; cursor:default; }
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; margin-top:8px; }
+  .field{ display:flex; flex-direction:column; gap:5px; font-size:12px; }
+  .field>span{ color:#6b675f; font-weight:600; }
+  .field i{ color:#c0392b; font-style:normal; }
+  .field input[type=text],.field input[type=email],.field input[type=date],.field select{
+    font-family:inherit; font-size:13.5px; color:#1f1d1a; background:#fff; border:1px solid #cbc8c1; border-radius:9px; padding:9px 11px; width:100%; outline:none; }
+  .field input:focus,.field select:focus{ border-color:#b06a3a; box-shadow:0 0 0 2px rgba(176,106,58,.12); }
+  .check{ flex-direction:row; align-items:center; justify-content:space-between; border:1px solid #e4e2dd; border-radius:9px; padding:9px 11px; }
+  .check>span{ color:#1f1d1a; } .check input{ width:17px; height:17px; }
+  .dupwarn{ display:none; margin-top:16px; font-size:13px; font-weight:700; color:#8a4b00; background:#fff6e8; border:1px solid #f0dcc0; border-radius:9px; padding:10px 13px; }
+  .note{ font-size:11.5px; color:#8a857b; margin-top:14px; line-height:1.55; border-left:3px solid #e0ded8; padding-left:11px; }
+  .err{ display:none; font-size:12.5px; color:#c0392b; margin-top:12px; font-weight:600; }
+  .actions{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; align-items:center; }
+  .btn{ font-family:inherit; font-size:13.5px; font-weight:650; cursor:pointer; border-radius:9px; padding:11px 20px; border:1px solid #a25c30; background:#b06a3a; color:#fff; }
+  .btn:hover{ background:#9c5a2d; } .btn:disabled{ opacity:.5; cursor:default; }
+  .btn.add{ background:#fff; color:#1f1d1a; border:1px dashed #b8b4ab; }
+  .btn.add:hover{ background:#f4f2ee; }
+  .log{ display:none; margin-top:16px; border:1px solid #e4e2dd; border-radius:10px; overflow:hidden; }
+  .log-h{ font-size:12px; font-weight:700; background:#faf9f7; padding:9px 12px; border-bottom:1px solid #eceae4; }
+  .log-b{ padding:8px 12px; font-size:12.5px; line-height:1.7; max-height:320px; overflow:auto; }
+  .log-b .ev{ font-weight:700; color:#1f1d1a; margin-top:8px; }
+  .ok{ color:#1c7c3a; } .run{ color:#6b675f; } .bad{ color:#c0392b; } .info{ color:#8a4b00; }
+  .done{ margin-top:12px; font-size:13.5px; font-weight:650; color:#1c7c3a; display:none; white-space:pre-line; }
+  @media(max-width:560px){ .grid{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1 class="title">Cargador de eventos · Zoho CRM</h1>
+    <p class="sub">Completá una o varias plantillas y presioná <b>Crear eventos</b>. Se crea cada oportunidad, se cierra la actividad automática y se generan las asignaciones de DJ — directo por la API de Zoho.</p>
+    <div class="ver">Versión __TOOL_VERSION__</div>
+    <div id="connWarn" class="warn-conn">⚠ Necesitás el <b>conector de Zoho CRM</b> conectado en tu Cowork para usar esta herramienta.</div>
+
+    <div id="blocks"></div>
+    <div class="actions"><button id="add" class="btn add">+ Agregar otra plantilla</button></div>
+    <div id="dupwarn" class="dupwarn">⚠ Cuidado, estás cargando dos eventos iguales.</div>
+
+    <div class="note">Automático por evento: <b>Nombre de oportunidad = "A"</b> (Zoho lo renombra con el ID), Móvil del contacto nuevo = "-", actividad "Revisar nueva Oportunidad asignada" completada, y cada asignación con <b>Estado del evento = Confirmado</b>, <b>Tipo = DJ</b>, <b>Estado = Borrador</b>.</div>
+
+    <div id="err" class="err"></div>
+    <div class="actions"><button id="go" class="btn">Crear eventos (1)</button></div>
+    <div id="log" class="log"><div class="log-h">Progreso</div><div id="logb" class="log-b"></div></div>
+    <div id="done" class="done"></div>
+  </div>
+</div>
+
+<script>
+  var TOOL_VERSION='__TOOL_VERSION__';
+  var Z='__ZOHO_PREFIX__';
+  var T={ search:Z+'searchRecords', coql:Z+'executeCOQLQuery', create:Z+'createRecords', update:Z+'updateRecord', related:Z+'getRelatedRecords', get:Z+'getRecord' };
+  var blocksEl=document.getElementById('blocks'), goBtn=document.getElementById('go'), dupEl=document.getElementById('dupwarn');
+  if(!(window.cowork&&window.cowork.callMcpTool)){ document.getElementById('connWarn').style.display='block'; }
+
+  function blockHTML(){ return ''+
+    '<div class="block-h"><span class="block-t"></span><button class="rm" type="button">Quitar</button></div>'+
+    '<div class="grid">'+
+    '<label class="field"><span>Nombre de contacto <i>*</i></span><input class="f_contacto" type="text" placeholder="Nombre y apellido"></label>'+
+    '<label class="field check"><span>Contacto nuevo (no existe)</span><input class="f_nuevo" type="checkbox"></label>'+
+    '<label class="field new" style="display:none"><span>Email del contacto</span><input class="f_email" type="email" placeholder="correo@ejemplo.com"></label>'+
+    '<label class="field new" style="display:none"><span>Teléfono del contacto</span><input class="f_tel" type="text" placeholder="Ej: 351 123 4567"></label>'+
+    '<label class="field"><span>Fase <i>*</i></span><select class="f_fase"><option value="">— Elegir —</option><option>Asignación de Oportunidad</option><option>Relevamiento de Necesidades</option><option>Desarrollo de Propuesta</option><option>Feedback y/o Negociación</option><option>Ganado</option><option>Perdido</option></select></label>'+
+    '<label class="field"><span>Fuente de posible cliente <i>*</i></span><select class="f_fuente"><option value="">— Elegir —</option><option>Facebook</option><option>Hola / Info / Recepción</option><option>Instagram</option><option>Organizadora</option><option>Personal</option><option>Por Dj Personal</option><option>Salón</option><option>Web</option><option value="__otro">Otro (especificar)…</option></select></label>'+
+    '<label class="field fuente-otro" style="display:none"><span>Fuente (otro)</span><input class="f_fuente_otro" type="text" placeholder="Escribí la fuente exacta"></label>'+
+    '<label class="field"><span>Tipo de evento <i>*</i></span><input class="f_tipo" type="text" list="tipos" placeholder="Ej: Fiesta, Casamiento…"></label>'+
+    '<label class="field"><span>Fecha del evento <i>*</i></span><input class="f_fecha" type="date"></label>'+
+    '<label class="field"><span>Lugar <i>*</i></span><input class="f_lugar" type="text" placeholder="Nombre del salón / lugar"></label>'+
+    '<label class="field"><span>Clase de evento <i>*</i></span><input class="f_clase" type="text" placeholder="Ej: General"></label>'+
+    '<label class="field"><span>Organizador</span><input class="f_org" type="text" placeholder="Opcional"></label>'+
+    '<label class="field"><span>Productor (usuario)</span><input class="f_prod" type="text" placeholder="Opcional — se avisa si hay que ponerlo a mano"></label>'+
+    '<label class="field"><span>Cantidad de DJs</span><select class="f_djs"><option value="1">1 (DJ 1)</option><option value="2">2 (DJ 1, DJ 2)</option><option value="3">3 (DJ 1, DJ 2, DJ 3)</option></select></label>'+
+    '<label class="field check"><span>Sumar DJ Cantera</span><input class="f_cantera" type="checkbox"></label>'+
+    '</div>'; }
+
+  function addBlock(){
+    var b=document.createElement('div'); b.className='block'; b.innerHTML=blockHTML(); blocksEl.appendChild(b);
+    b.querySelector('.f_nuevo').addEventListener('change',function(e){ b.querySelectorAll('.new').forEach(function(el){el.style.display=e.target.checked?'flex':'none';}); });
+    b.querySelector('.f_fuente').addEventListener('change',function(e){ b.querySelector('.fuente-otro').style.display=(e.target.value==='__otro')?'flex':'none'; });
+    b.querySelector('.rm').addEventListener('click',function(){ if(blocksEl.children.length>1){ b.remove(); recompute(); } });
+    recompute();
+  }
+  function v(b,sel){ var el=b.querySelector(sel); return el?(el.value||'').trim():''; }
+  function readBlock(b){ var fsel=b.querySelector('.f_fuente').value;
+    return { contacto:v(b,'.f_contacto'), nuevo:b.querySelector('.f_nuevo').checked, email:v(b,'.f_email'), tel:v(b,'.f_tel'),
+      fase:b.querySelector('.f_fase').value, fuente:(fsel==='__otro')?v(b,'.f_fuente_otro'):fsel,
+      tipo:v(b,'.f_tipo'), fecha:b.querySelector('.f_fecha').value, lugar:v(b,'.f_lugar'), clase:v(b,'.f_clase'),
+      org:v(b,'.f_org'), prod:v(b,'.f_prod'), djs:parseInt(b.querySelector('.f_djs').value,10), cantera:b.querySelector('.f_cantera').checked }; }
+  function sig(d){ if(!d.contacto||!d.fecha) return null;
+    return [d.contacto,d.nuevo,d.email,d.tel,d.fase,d.fuente,d.tipo,d.fecha,d.lugar,d.clase,d.org,d.prod,d.djs,d.cantera].join('|').toLowerCase(); }
+
+  function recompute(){
+    var bs=Array.prototype.slice.call(blocksEl.querySelectorAll('.block'));
+    bs.forEach(function(b,i){ b.querySelector('.block-t').textContent='Evento '+(i+1); b.querySelector('.rm').disabled=(bs.length<=1); b.classList.remove('dup'); });
+    goBtn.textContent=(bs.length===1?'Crear evento (1)':'Crear eventos ('+bs.length+')');
+    var seen={}, dup=false;
+    bs.forEach(function(b){ var s=sig(readBlock(b)); if(s===null)return; if(seen[s]){ dup=true; b.classList.add('dup'); seen[s].classList.add('dup'); } else seen[s]=b; });
+    dupEl.style.display=dup?'block':'none';
+  }
+  blocksEl.addEventListener('input',recompute); blocksEl.addEventListener('change',recompute);
+  document.getElementById('add').addEventListener('click',addBlock);
+
+  function log(txt,cls){ var b=document.getElementById('logb'); var d=document.createElement('div'); d.className=cls||'run'; d.textContent=txt; b.appendChild(d); b.scrollTop=b.scrollHeight; return d; }
+  function setErr(t){ var e=document.getElementById('err'); if(t){e.textContent=t;e.style.display='block';}else{e.style.display='none';} }
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+  async function call(name,args){ var r=await window.cowork.callMcpTool(name,args); var p;
+    if(r&&r.structuredContent) p=r.structuredContent; else if(r&&r.content&&r.content[0]&&r.content[0].text){ try{p=JSON.parse(r.content[0].text);}catch(e){p=r.content[0].text;} } else p=r;
+    if(r&&r.isError) throw new Error(typeof p==='string'?p:JSON.stringify(p)); return p; }
+  function rowsOf(p){ return (p&&p.data&&p.data.data)?p.data.data:[]; }
+  async function searchOne(module,word,label,exactField,exactVal){
+    var p=await call(T.search,{path_variables:{module:module},query_params:{word:word,per_page:20}});
+    var rs=rowsOf(p); if(!rs.length) throw new Error('No encontré "'+word+'" en '+label+'.');
+    if(exactField){ var ex=rs.filter(function(r){return(''+(r[exactField]||'')).toLowerCase()===(''+exactVal).toLowerCase();}); if(ex.length) rs=ex; }
+    return rs[0]; }
+
+  async function processEvent(d){
+    var contactId;
+    if(d.nuevo){ log('Creando contacto nuevo "'+d.contacto+'"…');
+      var cb={Last_Name:d.contacto,Mobile:'-'}; if(d.email)cb.Email=d.email; if(d.tel)cb.Phone=d.tel;
+      var cr=await call(T.create,{path_variables:{module:'Contacts'},body:{data:[cb]}}); contactId=cr.data.data[0].details.id; log('✓ Contacto creado','ok');
+    }else{ log('Buscando contacto "'+d.contacto+'"…'); var c=await searchOne('Contacts',d.contacto,'Contactos','Full_Name',d.contacto); contactId=c.id; log('✓ Contacto: '+(c.Full_Name||d.contacto),'ok'); }
+
+    log('Buscando lugar "'+d.lugar+'"…'); var lg=await searchOne('ABM_Salones',d.lugar,'Salones (Lugar)','Name',d.lugar); log('✓ Lugar: '+lg.Name,'ok');
+
+    log('Buscando clase "'+d.clase+'" del salón…');
+    var cq=await call(T.coql,{body:{select_query:"select id, Name from Condiciones_de_Salon where Sal_n = '"+lg.id+"'"}});
+    var cl=rowsOf(cq).filter(function(r){return(''+r.Name).toLowerCase()===d.clase.toLowerCase();});
+    if(!cl.length){ throw new Error('No encontré la clase "'+d.clase+'" para '+lg.Name+'.'); }
+    log('✓ Clase de evento: '+cl[0].Name,'ok');
+
+    var orgId=null;
+    if(d.org&&d.org!=='-'){ log('Buscando organizador "'+d.org+'"…'); try{ var o=await searchOne('ABM_Organizadores',d.org,'Organizadores','Name',d.org); orgId=o.id; log('✓ Organizador: '+o.Name,'ok'); }catch(e){ log('• Organizador "'+d.org+'" no encontrado — se deja vacío','info'); } }
+
+    log('Creando la oportunidad…');
+    var deal={Deal_Name:'A',Stage:d.fase,Lead_Source:d.fuente,Tipo_Evento:d.tipo,Fecha_Evento:d.fecha,Contact_Name:{id:contactId},Salon:{id:lg.id},Clase_de_Evento:{id:cl[0].id}};
+    if(orgId)deal.Organizador={id:orgId};
+    var dr=await call(T.create,{path_variables:{module:'Deals'},body:{data:[deal],trigger:['workflow']}}); var dealId=dr.data.data[0].details.id; log('✓ Oportunidad creada','ok');
+    if(d.prod&&d.prod!=='-') log('• Productor "'+d.prod+'" es usuario: asignalo a mano.','info');
+
+    log('Cerrando actividad automática…'); var closed=false;
+    for(var a=0;a<6&&!closed;a++){ await sleep(1500);
+      var tr=await call(T.related,{path_variables:{parentRecordModule:'Deals',parentRecord:dealId,relatedList:'Tasks'},query_params:{fields:'Subject,Status'}});
+      var tg=rowsOf(tr).filter(function(t){return(''+t.Subject).indexOf('Revisar nueva Oportunidad asignada')===0;})[0];
+      if(tg){ await call(T.update,{path_variables:{module:'Tasks',recordID:tg.id},body:{data:[{Status:'Terminada'}]}}); closed=true; } }
+    log(closed?'✓ Actividad completada':'• No apareció la actividad (revisala manual)',closed?'ok':'info');
+
+    var roles=[]; for(var i=1;i<=d.djs;i++)roles.push('DJ '+i); if(d.cantera)roles.push('DJ Cantera');
+    for(var k=0;k<roles.length;k++){ log('Asignación '+roles[k]+'…');
+      await call(T.create,{path_variables:{module:'Asignaciones'},body:{data:[{Oportunidad:{id:dealId},Estado_del_evento:'Confirmado',Tipo_asignacion:'DJ',Rol:roles[k],Estado:'Borrador'}],trigger:['workflow']}}); log('✓ '+roles[k]+' (Borrador)','ok'); }
+
+    var fin=await call(T.get,{path_variables:{module:'Deals',recordID:dealId}}); var fd=fin.data.data[0];
+    return fd.Deal_Name+(fd.ID_de_Evento?(' (ID '+fd.ID_de_Evento+')'):'');
+  }
+
+  async function run(){
+    setErr('');
+    if(!(window.cowork&&window.cowork.callMcpTool)){ setErr('No hay conector de Zoho. Abrí la herramienta en Cowork con el conector conectado.'); return; }
+    var bs=Array.prototype.slice.call(blocksEl.querySelectorAll('.block'));
+    var datas=bs.map(readBlock);
+    var problems=[];
+    datas.forEach(function(d,i){ var miss=[]; if(!d.contacto)miss.push('contacto'); if(!d.fase)miss.push('fase'); if(!d.fuente)miss.push('fuente'); if(!d.tipo)miss.push('tipo'); if(!d.fecha)miss.push('fecha'); if(!d.lugar)miss.push('lugar'); if(!d.clase)miss.push('clase'); if(miss.length)problems.push('Evento '+(i+1)+': faltan '+miss.join(', ')); });
+    if(problems.length){ setErr(problems.join(' · ')); return; }
+
+    goBtn.disabled=true; document.getElementById('add').disabled=true; document.getElementById('done').style.display='none';
+    document.getElementById('logb').innerHTML=''; document.getElementById('log').style.display='block';
+    var results=[], failed=0;
+    for(var i=0;i<datas.length;i++){
+      var head=log('▶ Evento '+(i+1)+' de '+datas.length,'ev'); head.className='ev';
+      try{ var name=await processEvent(datas[i]); results.push('✅ '+name); }
+      catch(e){ failed++; log('✕ Error: '+(e&&e.message?e.message:e),'bad'); results.push('❌ Evento '+(i+1)+': '+(e&&e.message?e.message:e)); }
+    }
+    goBtn.disabled=false; document.getElementById('add').disabled=false;
+    var done=document.getElementById('done'); done.style.display='block';
+    done.textContent=(failed===0?'✅ Listo — '+results.length+' evento(s) creado(s):\n':'Terminado con '+failed+' error(es):\n')+results.join('\n');
+  }
+  goBtn.addEventListener('click',run);
+  addBlock();
+</script>
+<datalist id="tipos"><option>Fiesta</option><option>After</option><option>Aniv</option><option>Bar</option><option>Bat</option><option>Batalla Dj</option><option>Bautismo</option><option>Casamiento</option><option>Cumpleaños</option><option>Corporativo</option></datalist>
+</body>
+</html>
