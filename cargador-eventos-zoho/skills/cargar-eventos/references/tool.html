@@ -55,7 +55,7 @@
     <div id="connWarn" class="warn-conn">⚠ Necesitás el <b>conector de Zoho CRM</b> conectado en tu Cowork para usar esta herramienta.</div>
 
     <div id="blocks"></div>
-    <div class="actions"><button id="add" class="btn add">+ Agregar otra plantilla</button></div>
+    <div class="actions"><button id="add" class="btn add">+ Agregar otra plantilla</button><button id="dup" class="btn add">⧉ Duplicar plantilla</button></div>
     <div id="dupwarn" class="dupwarn">⚠ Cuidado, estás cargando dos eventos iguales.</div>
 
     <div class="note">Automático por evento: <b>Nombre de oportunidad = "A"</b> (Zoho lo renombra con el ID), Móvil del contacto nuevo = "-", actividad "Revisar nueva Oportunidad asignada" completada, y cada asignación con <b>Estado del evento = Confirmado</b>, <b>Tipo = DJ</b>, <b>Estado = Borrador</b>.</div>
@@ -70,7 +70,8 @@
 <script>
   var TOOL_VERSION='__TOOL_VERSION__';
   var Z='__ZOHO_PREFIX__';
-  var T={ search:Z+'searchRecords', coql:Z+'executeCOQLQuery', create:Z+'createRecords', update:Z+'updateRecord', related:Z+'getRelatedRecords', get:Z+'getRecord' };
+  var T={ search:Z+'searchRecords', coql:Z+'executeCOQLQuery', create:Z+'createRecords', update:Z+'updateRecord', related:Z+'getRelatedRecords', get:Z+'getRecord', list:Z+'getRecords' };
+  var SALONES_OPTS='';
   var blocksEl=document.getElementById('blocks'), goBtn=document.getElementById('go'), dupEl=document.getElementById('dupwarn');
   if(!(window.cowork&&window.cowork.callMcpTool)){ document.getElementById('connWarn').style.display='block'; }
 
@@ -84,31 +85,71 @@
     '<label class="field"><span>Fase <i>*</i></span><select class="f_fase"><option value="">— Elegir —</option><option>Asignación de Oportunidad</option><option>Relevamiento de Necesidades</option><option>Desarrollo de Propuesta</option><option>Feedback y/o Negociación</option><option>Ganado</option><option>Perdido</option></select></label>'+
     '<label class="field"><span>Fuente de posible cliente <i>*</i></span><select class="f_fuente"><option value="">— Elegir —</option><option>Facebook</option><option>Hola / Info / Recepción</option><option>Instagram</option><option>Organizadora</option><option>Personal</option><option>Por Dj Personal</option><option>Salón</option><option>Web</option><option value="__otro">Otro (especificar)…</option></select></label>'+
     '<label class="field fuente-otro" style="display:none"><span>Fuente (otro)</span><input class="f_fuente_otro" type="text" placeholder="Escribí la fuente exacta"></label>'+
-    '<label class="field"><span>Tipo de evento <i>*</i></span><input class="f_tipo" type="text" list="tipos" placeholder="Ej: Fiesta, Casamiento…"></label>'+
+    '<label class="field"><span>Tipo de evento <i>*</i></span><select class="f_tipo"><option value="">— Elegir —</option><option>After</option><option>Aniv</option><option>Bar</option><option>Bat</option><option>Batalla Dj</option><option>Bautismo</option><option>Casam</option><option>Civil</option><option>Corpo</option><option>Curso Dj</option><option>F15</option><option>F30</option><option>F40</option><option>F50</option><option>F60</option><option>F70</option><option>F80</option><option>FFA</option><option>Fiesta</option><option>Otros</option><option>Playlist</option></select></label>'+
     '<label class="field"><span>Fecha del evento <i>*</i></span><input class="f_fecha" type="date"></label>'+
-    '<label class="field"><span>Lugar <i>*</i></span><input class="f_lugar" type="text" placeholder="Nombre del salón / lugar"></label>'+
-    '<label class="field"><span>Clase de evento <i>*</i></span><input class="f_clase" type="text" placeholder="Ej: General"></label>'+
+    '<label class="field"><span>Lugar <i>*</i></span><select class="f_lugar"><option value="">— Cargando lugares… —</option></select></label>'+
+    '<label class="field"><span>Clase de evento <i>*</i></span><input class="f_clase" type="text" value="General" placeholder="Ej: General"></label>'+
     '<label class="field"><span>Organizador</span><input class="f_org" type="text" placeholder="Opcional"></label>'+
     '<label class="field"><span>Productor (usuario)</span><input class="f_prod" type="text" placeholder="Opcional — se avisa si hay que ponerlo a mano"></label>'+
     '<label class="field"><span>Cantidad de DJs</span><select class="f_djs"><option value="1">1 (DJ 1)</option><option value="2">2 (DJ 1, DJ 2)</option><option value="3">3 (DJ 1, DJ 2, DJ 3)</option></select></label>'+
     '<label class="field check"><span>Sumar DJ Cantera</span><input class="f_cantera" type="checkbox"></label>'+
     '</div>'; }
 
-  function addBlock(){
+  function addBlock(prefill){
     var b=document.createElement('div'); b.className='block'; b.innerHTML=blockHTML(); blocksEl.appendChild(b);
     b.querySelector('.f_nuevo').addEventListener('change',function(e){ b.querySelectorAll('.new').forEach(function(el){el.style.display=e.target.checked?'flex':'none';}); });
     b.querySelector('.f_fuente').addEventListener('change',function(e){ b.querySelector('.fuente-otro').style.display=(e.target.value==='__otro')?'flex':'none'; });
     b.querySelector('.rm').addEventListener('click',function(){ if(blocksEl.children.length>1){ b.remove(); recompute(); } });
+    fillLugar(b);
+    if(prefill){ applyData(b,prefill); }
     recompute();
   }
+  function fillLugar(b){ if(!SALONES_OPTS) return; var ls=b.querySelector('.f_lugar'); var cur=ls.value; ls.innerHTML='<option value="">— Elegir —</option>'+SALONES_OPTS; if(cur) ls.value=cur; }
+  async function loadSalones(){
+    if(!(window.cowork&&window.cowork.callMcpTool)) return;
+    try{
+      var all=[], token=null, guard=0;
+      do{
+        var qp={fields:'Name', per_page:200, sort_by:'id', sort_order:'asc'}; if(token)qp.page_token=token;
+        var p=await call(T.list,{path_variables:{module:'ABM_Salones'},query_params:qp});
+        all=all.concat(rowsOf(p));
+        token=(p&&p.data&&p.data.info&&p.data.info.next_page_token)||null; guard++;
+      } while(token && guard<12);
+      all.sort(function(a,b){ return (''+a.Name).localeCompare(''+b.Name); });
+      SALONES_OPTS=all.map(function(s){ return '<option value="'+s.id+'">'+(''+s.Name).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</option>'; }).join('');
+      document.querySelectorAll('.f_lugar').forEach(function(ls){ var cur=ls.value; ls.innerHTML='<option value="">— Elegir —</option>'+SALONES_OPTS; if(cur) ls.value=cur; });
+    }catch(e){ /* si falla, quedan sin lugares */ }
+  }
+  function applyData(b,d){
+    b.querySelector('.f_contacto').value=d.contacto||'';
+    var nu=b.querySelector('.f_nuevo'); nu.checked=!!d.nuevo; b.querySelectorAll('.new').forEach(function(el){el.style.display=nu.checked?'flex':'none';});
+    b.querySelector('.f_email').value=d.email||''; b.querySelector('.f_tel').value=d.tel||'';
+    b.querySelector('.f_fase').value=d.fase||'';
+    var fs=b.querySelector('.f_fuente'); var opts=Array.prototype.map.call(fs.options,function(o){return o.value;});
+    if(d.fuente && opts.indexOf(d.fuente)>-1){ fs.value=d.fuente; b.querySelector('.fuente-otro').style.display='none'; }
+    else if(d.fuente){ fs.value='__otro'; b.querySelector('.fuente-otro').style.display='flex'; b.querySelector('.f_fuente_otro').value=d.fuente; }
+    b.querySelector('.f_tipo').value=d.tipo||'';
+    // fecha se deja vacía a propósito
+    b.querySelector('.f_lugar').value=d.lugarId||''; b.querySelector('.f_clase').value=d.clase||'';
+    b.querySelector('.f_org').value=d.org||''; b.querySelector('.f_prod').value=d.prod||'';
+    b.querySelector('.f_djs').value=String(d.djs||1); b.querySelector('.f_cantera').checked=!!d.cantera;
+  }
+  function duplicateLast(){
+    var bs=blocksEl.querySelectorAll('.block');
+    if(!bs.length){ addBlock(); return; }
+    var d=readBlock(bs[bs.length-1]); d.fecha='';
+    addBlock(d);
+  }
   function v(b,sel){ var el=b.querySelector(sel); return el?(el.value||'').trim():''; }
-  function readBlock(b){ var fsel=b.querySelector('.f_fuente').value;
+  function readBlock(b){ var fsel=b.querySelector('.f_fuente').value; var ls=b.querySelector('.f_lugar');
     return { contacto:v(b,'.f_contacto'), nuevo:b.querySelector('.f_nuevo').checked, email:v(b,'.f_email'), tel:v(b,'.f_tel'),
       fase:b.querySelector('.f_fase').value, fuente:(fsel==='__otro')?v(b,'.f_fuente_otro'):fsel,
-      tipo:v(b,'.f_tipo'), fecha:b.querySelector('.f_fecha').value, lugar:v(b,'.f_lugar'), clase:v(b,'.f_clase'),
-      org:v(b,'.f_org'), prod:v(b,'.f_prod'), djs:parseInt(b.querySelector('.f_djs').value,10), cantera:b.querySelector('.f_cantera').checked }; }
+      tipo:b.querySelector('.f_tipo').value, fecha:b.querySelector('.f_fecha').value,
+      lugarId:ls.value, lugarName:(ls.selectedIndex>=0?ls.options[ls.selectedIndex].text:''),
+      clase:v(b,'.f_clase'), org:v(b,'.f_org'), prod:v(b,'.f_prod'),
+      djs:parseInt(b.querySelector('.f_djs').value,10), cantera:b.querySelector('.f_cantera').checked }; }
   function sig(d){ if(!d.contacto||!d.fecha) return null;
-    return [d.contacto,d.nuevo,d.email,d.tel,d.fase,d.fuente,d.tipo,d.fecha,d.lugar,d.clase,d.org,d.prod,d.djs,d.cantera].join('|').toLowerCase(); }
+    return [d.contacto,d.nuevo,d.email,d.tel,d.fase,d.fuente,d.tipo,d.fecha,d.lugarId,d.clase,d.org,d.prod,d.djs,d.cantera].join('|').toLowerCase(); }
 
   function recompute(){
     var bs=Array.prototype.slice.call(blocksEl.querySelectorAll('.block'));
@@ -119,7 +160,8 @@
     dupEl.style.display=dup?'block':'none';
   }
   blocksEl.addEventListener('input',recompute); blocksEl.addEventListener('change',recompute);
-  document.getElementById('add').addEventListener('click',addBlock);
+  document.getElementById('add').addEventListener('click',function(){ addBlock(); });
+  document.getElementById('dup').addEventListener('click',duplicateLast);
 
   function log(txt,cls){ var b=document.getElementById('logb'); var d=document.createElement('div'); d.className=cls||'run'; d.textContent=txt; b.appendChild(d); b.scrollTop=b.scrollHeight; return d; }
   function setErr(t){ var e=document.getElementById('err'); if(t){e.textContent=t;e.style.display='block';}else{e.style.display='none';} }
@@ -141,10 +183,10 @@
       var cr=await call(T.create,{path_variables:{module:'Contacts'},body:{data:[cb]}}); contactId=cr.data.data[0].details.id; log('✓ Contacto creado','ok');
     }else{ log('Buscando contacto "'+d.contacto+'"…'); var c=await searchOne('Contacts',d.contacto,'Contactos','Full_Name',d.contacto); contactId=c.id; log('✓ Contacto: '+(c.Full_Name||d.contacto),'ok'); }
 
-    log('Buscando lugar "'+d.lugar+'"…'); var lg=await searchOne('ABM_Salones',d.lugar,'Salones (Lugar)','Name',d.lugar); log('✓ Lugar: '+lg.Name,'ok');
+    var lg={id:d.lugarId,Name:d.lugarName}; log('✓ Lugar: '+lg.Name,'ok');
 
     log('Buscando clase "'+d.clase+'" del salón…');
-    var cq=await call(T.coql,{body:{select_query:"select id, Name from Condiciones_de_Salon where Sal_n = '"+lg.id+"'"}});
+    var cq=await call(T.coql,{body:{select_query:"select id, Name from Condiciones_de_Salon where Sal_n = '"+lg.id+"' and Lista_de_selecci_n_1 = 'Activa'"}});
     var cl=rowsOf(cq).filter(function(r){return(''+r.Name).toLowerCase()===d.clase.toLowerCase();});
     if(!cl.length){ throw new Error('No encontré la clase "'+d.clase+'" para '+lg.Name+'.'); }
     log('✓ Clase de evento: '+cl[0].Name,'ok');
@@ -179,7 +221,7 @@
     var bs=Array.prototype.slice.call(blocksEl.querySelectorAll('.block'));
     var datas=bs.map(readBlock);
     var problems=[];
-    datas.forEach(function(d,i){ var miss=[]; if(!d.contacto)miss.push('contacto'); if(!d.fase)miss.push('fase'); if(!d.fuente)miss.push('fuente'); if(!d.tipo)miss.push('tipo'); if(!d.fecha)miss.push('fecha'); if(!d.lugar)miss.push('lugar'); if(!d.clase)miss.push('clase'); if(miss.length)problems.push('Evento '+(i+1)+': faltan '+miss.join(', ')); });
+    datas.forEach(function(d,i){ var miss=[]; if(!d.contacto)miss.push('contacto'); if(!d.fase)miss.push('fase'); if(!d.fuente)miss.push('fuente'); if(!d.tipo)miss.push('tipo'); if(!d.fecha)miss.push('fecha'); if(!d.lugarId)miss.push('lugar'); if(!d.clase)miss.push('clase'); if(miss.length)problems.push('Evento '+(i+1)+': faltan '+miss.join(', ')); });
     if(problems.length){ setErr(problems.join(' · ')); return; }
 
     goBtn.disabled=true; document.getElementById('add').disabled=true; document.getElementById('done').style.display='none';
@@ -196,6 +238,7 @@
   }
   goBtn.addEventListener('click',run);
   addBlock();
+  loadSalones();
 </script>
 <datalist id="tipos"><option>Fiesta</option><option>After</option><option>Aniv</option><option>Bar</option><option>Bat</option><option>Batalla Dj</option><option>Bautismo</option><option>Casamiento</option><option>Cumpleaños</option><option>Corporativo</option></datalist>
 </body>
