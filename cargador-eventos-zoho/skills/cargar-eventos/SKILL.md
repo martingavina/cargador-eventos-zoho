@@ -39,8 +39,8 @@ Esta skill abre una herramienta visual (formulario) para cargar uno o varios eve
    - `__TOOL_VERSION__` por `LOCAL_VERSION`.
 3. Escribí el HTML resultante en un archivo temporal y publicalo con `create_artifact` (o `update_artifact` si ya existe) usando:
    - `id`: `cargador-eventos-zoho`
-   - `mcp_tools`: la lista de estas seis, cada una con el prefijo detectado:
-     `<prefijo>searchRecords`, `<prefijo>executeCOQLQuery`, `<prefijo>createRecords`, `<prefijo>updateRecord`, `<prefijo>getRelatedRecords`, `<prefijo>getRecord`
+   - `mcp_tools`: la lista de estas siete, cada una con el prefijo detectado:
+     `<prefijo>searchRecords`, `<prefijo>executeCOQLQuery`, `<prefijo>createRecords`, `<prefijo>updateRecord`, `<prefijo>getRelatedRecords`, `<prefijo>getRecord`, `<prefijo>getRecords`
 4. Decile al usuario, en una o dos frases, que el cargador está abierto: que complete la tabla y presione "Crear eventos". No repitas el contenido del formulario.
 
 ## Notas de funcionamiento (para responder dudas)
