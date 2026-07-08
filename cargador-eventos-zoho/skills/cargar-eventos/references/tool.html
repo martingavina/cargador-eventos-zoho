@@ -8,7 +8,7 @@
   :root{ color-scheme: light; }
   *{ box-sizing:border-box; }
   body{ margin:0; background:#f6f6f4; color:#1f1d1a; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; padding:22px; }
-  .wrap{ max-width:820px; margin:0 auto; }
+  .wrap{ max-width:860px; margin:0 auto; }
   .card{ background:#fff; border:1px solid #e4e2dd; border-radius:14px; padding:22px; }
   .title{ font-size:19px; font-weight:700; margin:0; letter-spacing:-.01em; }
   .sub{ font-size:13px; color:#6b675f; margin:6px 0 0; line-height:1.5; }
@@ -39,10 +39,36 @@
   .btn.add:hover{ background:#f4f2ee; }
   .log{ display:none; margin-top:16px; border:1px solid #e4e2dd; border-radius:10px; overflow:hidden; }
   .log-h{ font-size:12px; font-weight:700; background:#faf9f7; padding:9px 12px; border-bottom:1px solid #eceae4; }
-  .log-b{ padding:8px 12px; font-size:12.5px; line-height:1.7; max-height:320px; overflow:auto; }
+  .log-b{ padding:8px 12px; font-size:12.5px; line-height:1.7; max-height:240px; overflow:auto; }
   .log-b .ev{ font-weight:700; color:#1f1d1a; margin-top:8px; }
   .ok{ color:#1c7c3a; } .run{ color:#6b675f; } .bad{ color:#c0392b; } .info{ color:#8a4b00; }
   .done{ margin-top:12px; font-size:13.5px; font-weight:650; color:#1c7c3a; display:none; white-space:pre-line; }
+
+  /* Panel de seguimiento */
+  .panel{ margin-top:22px; }
+  .panel-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .panel-title{ font-size:15px; font-weight:700; }
+  .panel-toggle{ font-size:12px; color:#6b675f; cursor:pointer; background:none; border:1px solid #cbc8c1; border-radius:8px; padding:5px 10px; }
+  .alert{ display:none; margin-top:12px; font-size:13px; font-weight:650; color:#8a2f00; background:#fdece0; border:1px solid #f3c8ab; border-radius:10px; padding:11px 13px; }
+  .alert.crit{ color:#8a1f1f; background:#fbe4e4; border-color:#eeb7b7; }
+  .ev-card{ border:1px solid #e4e2dd; border-radius:12px; padding:12px 14px; margin-top:12px; }
+  .ev-card.pend{ border-color:#e0a94b; }
+  .ev-card.fail{ border-color:#e08a8a; }
+  .ev-card.okall{ border-color:#bfe3c8; }
+  .ev-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .ev-name{ font-size:13.5px; font-weight:700; color:#1f1d1a; }
+  .ev-meta{ font-size:11.5px; color:#8a857b; margin-top:2px; }
+  .ev-x{ font-size:12px; color:#6b675f; background:none; border:1px solid #d9d6cf; border-radius:8px; padding:4px 9px; cursor:pointer; white-space:nowrap; }
+  .tasks{ margin-top:10px; display:flex; flex-direction:column; gap:7px; }
+  .task{ display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12.5px; }
+  .task-l{ display:flex; align-items:center; gap:8px; }
+  .task-l .ic{ width:17px; height:17px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#fff; flex:0 0 auto; }
+  .ic.y{ background:#1c7c3a; } .ic.n{ background:#c0392b; }
+  .do-btn{ font-size:11.5px; font-weight:650; cursor:pointer; border-radius:7px; padding:5px 11px; border:1px solid #a25c30; background:#b06a3a; color:#fff; }
+  .do-btn:hover{ background:#9c5a2d; } .do-btn:disabled{ opacity:.5; cursor:default; }
+  .retry-btn{ margin-top:10px; font-size:12.5px; font-weight:700; cursor:pointer; border-radius:8px; padding:8px 14px; border:1px solid #a25c30; background:#b06a3a; color:#fff; }
+  .retry-btn:hover{ background:#9c5a2d; } .retry-btn:disabled{ opacity:.5; cursor:default; }
+  .ev-empty{ font-size:12.5px; color:#8a857b; margin-top:10px; }
   @media(max-width:560px){ .grid{ grid-template-columns:1fr; } }
 </style>
 </head>
@@ -50,7 +76,7 @@
 <div class="wrap">
   <div class="card">
     <h1 class="title">Cargador de eventos · Zoho CRM</h1>
-    <p class="sub">Completá una o varias plantillas y presioná <b>Crear eventos</b>. Se crea cada oportunidad, se cierra la actividad automática y se generan las asignaciones de DJ — directo por la API de Zoho.</p>
+    <p class="sub">Completá una o varias plantillas y presioná <b>Crear eventos</b>. Se crea cada oportunidad, se cierra la actividad automática y se generan las asignaciones de DJ — con reintentos automáticos.</p>
     <div class="ver">Versión __TOOL_VERSION__</div>
     <div id="connWarn" class="warn-conn">⚠ Necesitás el <b>conector de Zoho CRM</b> conectado en tu Cowork para usar esta herramienta.</div>
 
@@ -64,6 +90,15 @@
     <div class="actions"><button id="go" class="btn">Crear eventos (1)</button></div>
     <div id="log" class="log"><div class="log-h">Progreso</div><div id="logb" class="log-b"></div></div>
     <div id="done" class="done"></div>
+
+    <div class="panel">
+      <div class="panel-top">
+        <div class="panel-title">Seguimiento de eventos y tareas</div>
+        <button id="histToggle" class="panel-toggle">Ver historial</button>
+      </div>
+      <div id="alert" class="alert"></div>
+      <div id="panelBody"></div>
+    </div>
   </div>
 </div>
 
@@ -71,10 +106,14 @@
   var TOOL_VERSION='__TOOL_VERSION__';
   var Z='__ZOHO_PREFIX__';
   var T={ search:Z+'searchRecords', coql:Z+'executeCOQLQuery', create:Z+'createRecords', update:Z+'updateRecord', related:Z+'getRelatedRecords', get:Z+'getRecord', list:Z+'getRecords' };
+  var STORE='cezPanel_v1';
   var SALONES_OPTS='';
+  var showHist=false;
   var blocksEl=document.getElementById('blocks'), goBtn=document.getElementById('go'), dupEl=document.getElementById('dupwarn');
-  if(!(window.cowork&&window.cowork.callMcpTool)){ document.getElementById('connWarn').style.display='block'; }
+  var hasConn=!!(window.cowork&&window.cowork.callMcpTool);
+  if(!hasConn){ document.getElementById('connWarn').style.display='block'; }
 
+  /* ---------- Formulario (plantillas) ---------- */
   function blockHTML(){ return ''+
     '<div class="block-h"><span class="block-t"></span><button class="rm" type="button">Quitar</button></div>'+
     '<div class="grid">'+
@@ -106,17 +145,17 @@
   }
   function fillLugar(b){ if(!SALONES_OPTS) return; var ls=b.querySelector('.f_lugar'); var cur=ls.value; ls.innerHTML='<option value="">— Elegir —</option>'+SALONES_OPTS; if(cur) ls.value=cur; }
   async function loadSalones(){
-    if(!(window.cowork&&window.cowork.callMcpTool)) return;
+    if(!hasConn) return;
     try{
       var all=[], token=null, guard=0;
       do{
         var qp={fields:'Name', per_page:200, sort_by:'id', sort_order:'asc'}; if(token)qp.page_token=token;
-        var p=await call(T.list,{path_variables:{module:'ABM_Salones'},query_params:qp});
+        var p=await call(T.list,{path_variables:{module:'ABM_Salones'},query_params:qp},{tries:3});
         all=all.concat(rowsOf(p));
         token=(p&&p.data&&p.data.info&&p.data.info.next_page_token)||null; guard++;
       } while(token && guard<12);
       all.sort(function(a,b){ return (''+a.Name).localeCompare(''+b.Name); });
-      SALONES_OPTS=all.map(function(s){ return '<option value="'+s.id+'">'+(''+s.Name).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</option>'; }).join('');
+      SALONES_OPTS=all.map(function(s){ return '<option value="'+s.id+'">'+esc(''+s.Name)+'</option>'; }).join('');
       document.querySelectorAll('.f_lugar').forEach(function(ls){ var cur=ls.value; ls.innerHTML='<option value="">— Elegir —</option>'+SALONES_OPTS; if(cur) ls.value=cur; });
     }catch(e){ /* si falla, quedan sin lugares */ }
   }
@@ -129,7 +168,6 @@
     if(d.fuente && opts.indexOf(d.fuente)>-1){ fs.value=d.fuente; b.querySelector('.fuente-otro').style.display='none'; }
     else if(d.fuente){ fs.value='__otro'; b.querySelector('.fuente-otro').style.display='flex'; b.querySelector('.f_fuente_otro').value=d.fuente; }
     b.querySelector('.f_tipo').value=d.tipo||'';
-    // fecha se deja vacía a propósito
     b.querySelector('.f_lugar').value=d.lugarId||''; b.querySelector('.f_clase').value=d.clase||'';
     b.querySelector('.f_org').value=d.org||''; b.querySelector('.f_prod').value=d.prod||'';
     b.querySelector('.f_djs').value=String(d.djs||1); b.querySelector('.f_cantera').checked=!!d.cantera;
@@ -150,7 +188,6 @@
       djs:parseInt(b.querySelector('.f_djs').value,10), cantera:b.querySelector('.f_cantera').checked }; }
   function sig(d){ if(!d.contacto||!d.fecha) return null;
     return [d.contacto,d.nuevo,d.email,d.tel,d.fase,d.fuente,d.tipo,d.fecha,d.lugarId,d.clase,d.org,d.prod,d.djs,d.cantera].join('|').toLowerCase(); }
-
   function recompute(){
     var bs=Array.prototype.slice.call(blocksEl.querySelectorAll('.block'));
     bs.forEach(function(b,i){ b.querySelector('.block-t').textContent='Evento '+(i+1); b.querySelector('.rm').disabled=(bs.length<=1); b.classList.remove('dup'); });
@@ -163,83 +200,212 @@
   document.getElementById('add').addEventListener('click',function(){ addBlock(); });
   document.getElementById('dup').addEventListener('click',duplicateLast);
 
+  /* ---------- Utilidades ---------- */
   function log(txt,cls){ var b=document.getElementById('logb'); var d=document.createElement('div'); d.className=cls||'run'; d.textContent=txt; b.appendChild(d); b.scrollTop=b.scrollHeight; return d; }
   function setErr(t){ var e=document.getElementById('err'); if(t){e.textContent=t;e.style.display='block';}else{e.style.display='none';} }
   function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
-  async function call(name,args){ var r=await window.cowork.callMcpTool(name,args); var p;
-    if(r&&r.structuredContent) p=r.structuredContent; else if(r&&r.content&&r.content[0]&&r.content[0].text){ try{p=JSON.parse(r.content[0].text);}catch(e){p=r.content[0].text;} } else p=r;
-    if(r&&r.isError) throw new Error(typeof p==='string'?p:JSON.stringify(p)); return p; }
+  function esc(s){ return (''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function isTransient(m){ m=(''+m).toLowerCase();
+    return m.indexOf('503')>-1||m.indexOf('502')>-1||m.indexOf('504')>-1||m.indexOf('500')>-1||m.indexOf('timeout')>-1||m.indexOf('timed out')>-1||m.indexOf('unavailable')>-1||m.indexOf('rate')>-1||m.indexOf('too many')>-1||m.indexOf('internal server')>-1||m.indexOf('network')>-1||m.indexOf('failed to fetch')>-1; }
+  async function call(name,args,opts){ opts=opts||{}; var tries=opts.tries||4; var lastErr;
+    for(var i=0;i<tries;i++){
+      try{
+        var r=await window.cowork.callMcpTool(name,args); var p;
+        if(r&&r.structuredContent) p=r.structuredContent; else if(r&&r.content&&r.content[0]&&r.content[0].text){ try{p=JSON.parse(r.content[0].text);}catch(e){p=r.content[0].text;} } else p=r;
+        if(r&&r.isError){ var msg=typeof p==='string'?p:JSON.stringify(p); if(isTransient(msg)&&i<tries-1){ await sleep(1300*(i+1)); continue; } throw new Error(msg); }
+        return p;
+      }catch(e){ lastErr=e; var m=(e&&e.message)?e.message:(''+e); if(isTransient(m)&&i<tries-1){ await sleep(1300*(i+1)); continue; } throw e; }
+    }
+    throw lastErr; }
   function rowsOf(p){ return (p&&p.data&&p.data.data)?p.data.data:[]; }
+  async function createOne(module,body,tries){
+    var t=tries||4;
+    for(var i=0;i<t;i++){
+      var p=await call(T.create,{path_variables:{module:module},body:{data:[body],trigger:['workflow']}},{tries:1}).catch(function(e){return {__err:e};});
+      if(p&&p.__err){ var m=(p.__err.message||'')+''; if(isTransient(m)&&i<t-1){ await sleep(1300*(i+1)); continue; } throw p.__err; }
+      var row=(p&&p.data&&p.data.data&&p.data.data[0])||{};
+      if(row.code==='SUCCESS'){ return row.details.id; }
+      var em=row.message||row.code||JSON.stringify(p);
+      if(isTransient(em)&&i<t-1){ await sleep(1300*(i+1)); continue; }
+      throw new Error(em);
+    }
+    throw new Error('No se pudo crear en '+module); }
   async function searchOne(module,word,label,exactField,exactVal){
     var p=await call(T.search,{path_variables:{module:module},query_params:{word:word,per_page:20}});
     var rs=rowsOf(p); if(!rs.length) throw new Error('No encontré "'+word+'" en '+label+'.');
     if(exactField){ var ex=rs.filter(function(r){return(''+(r[exactField]||'')).toLowerCase()===(''+exactVal).toLowerCase();}); if(ex.length) rs=ex; }
     return rs[0]; }
 
-  async function processEvent(d){
-    var contactId;
-    if(d.nuevo){ log('Creando contacto nuevo "'+d.contacto+'"…');
-      var cb={Last_Name:d.contacto,Mobile:'-'}; if(d.email)cb.Email=d.email; if(d.tel)cb.Phone=d.tel;
-      var cr=await call(T.create,{path_variables:{module:'Contacts'},body:{data:[cb]}}); contactId=cr.data.data[0].details.id; log('✓ Contacto creado','ok');
-    }else{ log('Buscando contacto "'+d.contacto+'"…'); var c=await searchOne('Contacts',d.contacto,'Contactos','Full_Name',d.contacto); contactId=c.id; log('✓ Contacto: '+(c.Full_Name||d.contacto),'ok'); }
-
-    var lg={id:d.lugarId,Name:d.lugarName}; log('✓ Lugar: '+lg.Name,'ok');
-
-    log('Buscando clase "'+d.clase+'" del salón…');
-    var cq=await call(T.coql,{body:{select_query:"select id, Name from Condiciones_de_Salon where Sal_n = '"+lg.id+"' and Lista_de_selecci_n_1 = 'Activa'"}});
+  /* ---------- Acciones Zoho reutilizables ---------- */
+  async function resolveContact(d){
+    if(d.nuevo){ var cb={Last_Name:d.contacto,Mobile:'-'}; if(d.email)cb.Email=d.email; if(d.tel)cb.Phone=d.tel; return await createOne('Contacts',cb); }
+    var c=await searchOne('Contacts',d.contacto,'Contactos','Full_Name',d.contacto); return c.id;
+  }
+  async function resolveClase(d){
+    var cq=await call(T.coql,{body:{select_query:"select id, Name from Condiciones_de_Salon where Sal_n = '"+d.lugarId+"' and Lista_de_selecci_n_1 = 'Activa'"}});
     var cl=rowsOf(cq).filter(function(r){return(''+r.Name).toLowerCase()===d.clase.toLowerCase();});
-    if(!cl.length){ throw new Error('No encontré la clase "'+d.clase+'" para '+lg.Name+'.'); }
-    log('✓ Clase de evento: '+cl[0].Name,'ok');
-
+    if(!cl.length) throw new Error('No encontré la clase "'+d.clase+'" (activa) para '+d.lugarName+'.');
+    return cl[0].id;
+  }
+  async function createDeal(d){
+    var contactId=await resolveContact(d);
+    var claseId=await resolveClase(d);
     var orgId=null;
-    if(d.org&&d.org!=='-'){ log('Buscando organizador "'+d.org+'"…'); try{ var o=await searchOne('ABM_Organizadores',d.org,'Organizadores','Name',d.org); orgId=o.id; log('✓ Organizador: '+o.Name,'ok'); }catch(e){ log('• Organizador "'+d.org+'" no encontrado — se deja vacío','info'); } }
-
-    log('Creando la oportunidad…');
-    var deal={Deal_Name:'A',Stage:d.fase,Lead_Source:d.fuente,Tipo_Evento:d.tipo,Fecha_Evento:d.fecha,Contact_Name:{id:contactId},Salon:{id:lg.id},Clase_de_Evento:{id:cl[0].id}};
+    if(d.org&&d.org!=='-'){ try{ var o=await searchOne('ABM_Organizadores',d.org,'Organizadores','Name',d.org); orgId=o.id; }catch(e){} }
+    var deal={Deal_Name:'A',Stage:d.fase,Lead_Source:d.fuente,Tipo_Evento:d.tipo,Fecha_Evento:d.fecha,Contact_Name:{id:contactId},Salon:{id:d.lugarId},Clase_de_Evento:{id:claseId}};
     if(orgId)deal.Organizador={id:orgId};
-    var dr=await call(T.create,{path_variables:{module:'Deals'},body:{data:[deal],trigger:['workflow']}}); var dealId=dr.data.data[0].details.id; log('✓ Oportunidad creada','ok');
-    if(d.prod&&d.prod!=='-') log('• Productor "'+d.prod+'" es usuario: asignalo a mano.','info');
-
-    log('Cerrando actividad automática…'); var closed=false;
-    for(var a=0;a<6&&!closed;a++){ await sleep(1500);
+    return await createOne('Deals',deal);
+  }
+  async function closeActivity(dealId){
+    var closed=false;
+    for(var a=0;a<6&&!closed;a++){ await sleep(1400);
       var tr=await call(T.related,{path_variables:{parentRecordModule:'Deals',parentRecord:dealId,relatedList:'Tasks'},query_params:{fields:'Subject,Status'}});
-      var tg=rowsOf(tr).filter(function(t){return(''+t.Subject).indexOf('Revisar nueva Oportunidad asignada')===0;})[0];
-      if(tg){ await call(T.update,{path_variables:{module:'Tasks',recordID:tg.id},body:{data:[{Status:'Terminada'}]}}); closed=true; } }
-    log(closed?'✓ Actividad completada':'• No apareció la actividad (revisala manual)',closed?'ok':'info');
+      var tg=rowsOf(tr).filter(function(t){return(''+t.Subject).indexOf('Revisar nueva Oportunidad asignada')===0 && (''+t.Status).toLowerCase()!=='terminada';})[0];
+      var already=rowsOf(tr).filter(function(t){return(''+t.Subject).indexOf('Revisar nueva Oportunidad asignada')===0 && (''+t.Status).toLowerCase()==='terminada';})[0];
+      if(already){ return true; }
+      if(tg){ await call(T.update,{path_variables:{module:'Tasks',recordID:tg.id},body:{data:[{Status:'Terminada'}]}}); return true; }
+    }
+    return false;
+  }
+  async function createAssignment(dealId,role){
+    await createOne('Asignaciones',{Oportunidad:{id:dealId},Estado_del_evento:'Confirmado',Tipo_asignacion:'DJ',Rol:role,Estado:'Borrador'});
+    return true;
+  }
+  function rolesOf(d){ var r=[]; for(var i=1;i<=(d.djs||1);i++)r.push('DJ '+i); if(d.cantera)r.push('DJ Cantera'); return r; }
+  async function dealName(dealId){ try{ var fin=await call(T.get,{path_variables:{module:'Deals',recordID:dealId}}); var fd=fin.data.data[0]; return {name:fd.Deal_Name,evid:fd.ID_de_Evento}; }catch(e){ return {name:null,evid:null}; } }
 
-    var roles=[]; for(var i=1;i<=d.djs;i++)roles.push('DJ '+i); if(d.cantera)roles.push('DJ Cantera');
-    for(var k=0;k<roles.length;k++){ log('Asignación '+roles[k]+'…');
-      await call(T.create,{path_variables:{module:'Asignaciones'},body:{data:[{Oportunidad:{id:dealId},Estado_del_evento:'Confirmado',Tipo_asignacion:'DJ',Rol:roles[k],Estado:'Borrador'}],trigger:['workflow']}}); log('✓ '+roles[k]+' (Borrador)','ok'); }
+  /* Procesa un evento. NO tira excepción por tareas post-creación; devuelve item con checklist. */
+  async function processOne(d){
+    var summary=(d.contacto||'(sin contacto)')+' · '+(d.tipo||'')+' · '+(d.fecha||'')+' · '+(d.lugarName||'');
+    var dealId;
+    try{ dealId=await createDeal(d); }
+    catch(e){ return { dealId:null, createdOk:false, name:summary, fecha:d.fecha, data:d, error:(e&&e.message?e.message:(''+e)), tasks:[] }; }
 
-    var fin=await call(T.get,{path_variables:{module:'Deals',recordID:dealId}}); var fd=fin.data.data[0];
-    return fd.Deal_Name+(fd.ID_de_Evento?(' (ID '+fd.ID_de_Evento+')'):'');
+    var tasks=[{key:'act',label:'Actividad "Revisar nueva Oportunidad asignada" completada',done:false}];
+    rolesOf(d).forEach(function(role){ tasks.push({key:'dj|'+role,label:'Asignación '+role+' (Borrador)',done:false}); });
+
+    try{ log('Cerrando actividad automática…'); tasks[0].done=await closeActivity(dealId); log(tasks[0].done?'✓ Actividad completada':'• Actividad pendiente','info'); }
+    catch(e){ tasks[0].done=false; log('• Actividad pendiente ('+(e.message||e)+')','info'); }
+    for(var k=1;k<tasks.length;k++){ var role=tasks[k].key.split('|')[1];
+      try{ log('Asignación '+role+'…'); await createAssignment(dealId,role); tasks[k].done=true; log('✓ '+role,'ok'); }
+      catch(e){ tasks[k].done=false; log('• '+role+' pendiente ('+(e.message||e)+')','info'); } }
+
+    var nm=await dealName(dealId);
+    return { dealId:dealId, createdOk:true, name:nm.name||summary, evid:nm.evid||null, fecha:d.fecha, data:d, tasks:tasks };
   }
 
+  /* ---------- Panel persistente (localStorage) ---------- */
+  function loadStore(){ try{ return JSON.parse(localStorage.getItem(STORE)||'[]'); }catch(e){ return []; } }
+  function saveStore(arr){ try{ localStorage.setItem(STORE,JSON.stringify(arr)); }catch(e){} }
+  function addToStore(item){ var arr=loadStore(); item.uid='e'+Date.now()+Math.floor(Math.random()*1000); item.dismissed=false; item.ts=Date.now(); arr.unshift(item); saveStore(arr); return item.uid; }
+  function updateStore(uid,mut){ var arr=loadStore(); for(var i=0;i<arr.length;i++){ if(arr[i].uid===uid){ mut(arr[i]); break; } } saveStore(arr); }
+  function pendingCount(it){ if(!it.createdOk) return 999; return it.tasks.filter(function(t){return !t.done;}).length; }
+
+  function renderPanel(){
+    var arr=loadStore();
+    var body=document.getElementById('panelBody'); body.innerHTML='';
+    var alert=document.getElementById('alert');
+    var visible=arr.filter(function(it){ return showHist ? true : !it.dismissed; });
+    var nNoCreado=arr.filter(function(it){return !it.dismissed && !it.createdOk;}).length;
+    var nPend=arr.filter(function(it){return !it.dismissed && it.createdOk && pendingCount(it)>0;}).length;
+    alert.className='alert'; alert.style.display='none';
+    if(nNoCreado>0||nPend>0){
+      alert.style.display='block';
+      var parts=[];
+      if(nNoCreado>0){ parts.push(nNoCreado+' evento(s) NO se crearon (reintentá su creación)'); alert.className='alert crit'; }
+      if(nPend>0){ parts.push(nPend+' evento(s) con tareas pendientes (completalas abajo)'); }
+      alert.textContent='⚠ '+parts.join(' · ')+'.';
+    }
+    document.getElementById('histToggle').textContent = showHist ? 'Ver solo pendientes' : 'Ver historial';
+    if(!visible.length){ body.innerHTML='<div class="ev-empty">'+(showHist?'No hay eventos en el historial todavía.':'No hay eventos con tareas pendientes. 🎉')+'</div>'; return; }
+
+    visible.forEach(function(it){
+      var card=document.createElement('div');
+      var cls='ev-card'; if(!it.createdOk) cls+=' fail'; else if(pendingCount(it)>0) cls+=' pend'; else cls+=' okall';
+      card.className=cls;
+      var meta = it.createdOk ? ((it.evid?('ID '+it.evid+' · '):'')+(it.fecha||'')) : ('No creado'+(it.error?(' · '+esc(it.error)):''));
+      var head='<div class="ev-head"><div><div class="ev-name">'+esc(it.name||'(evento)')+'</div><div class="ev-meta">'+esc(meta)+'</div></div>'+
+               '<button class="ev-x" data-x="'+it.uid+'">'+(it.dismissed?'Restaurar':'Quitar')+'</button></div>';
+      var mid='';
+      if(!it.createdOk){
+        mid='<button class="retry-btn" data-retry="'+it.uid+'">Reintentar creación de evento</button>';
+      } else {
+        mid='<div class="tasks">'+it.tasks.map(function(t){
+          var ic = t.done ? '<span class="ic y">✓</span>' : '<span class="ic n">!</span>';
+          var right = t.done ? '' : '<button class="do-btn" data-do="'+it.uid+'" data-task="'+encodeURIComponent(t.key)+'">Hacer</button>';
+          return '<div class="task"><div class="task-l">'+ic+'<span>'+esc(t.label)+'</span></div>'+right+'</div>';
+        }).join('')+'</div>';
+      }
+      card.innerHTML=head+mid;
+      body.appendChild(card);
+    });
+
+    body.querySelectorAll('[data-x]').forEach(function(btn){ btn.addEventListener('click',function(){ var uid=btn.getAttribute('data-x'); updateStore(uid,function(it){ it.dismissed=!it.dismissed; }); renderPanel(); }); });
+    body.querySelectorAll('[data-retry]').forEach(function(btn){ btn.addEventListener('click',function(){ retryCreate(btn.getAttribute('data-retry'),btn); }); });
+    body.querySelectorAll('[data-do]').forEach(function(btn){ btn.addEventListener('click',function(){ doTask(btn.getAttribute('data-do'),decodeURIComponent(btn.getAttribute('data-task')),btn); }); });
+  }
+  document.getElementById('histToggle').addEventListener('click',function(){ showHist=!showHist; renderPanel(); });
+
+  async function doTask(uid,taskKey,btn){
+    if(!hasConn){ setErr('No hay conector de Zoho.'); return; }
+    var arr=loadStore(); var it=null; for(var i=0;i<arr.length;i++){ if(arr[i].uid===uid){ it=arr[i]; break; } }
+    if(!it||!it.dealId) return;
+    btn.disabled=true; btn.textContent='Haciendo…';
+    try{
+      if(taskKey==='act'){ var ok=await closeActivity(it.dealId); if(!ok) throw new Error('no apareció la actividad'); }
+      else if(taskKey.indexOf('dj|')===0){ await createAssignment(it.dealId, taskKey.split('|')[1]); }
+      updateStore(uid,function(x){ x.tasks.forEach(function(t){ if(t.key===taskKey) t.done=true; }); });
+      renderPanel();
+    }catch(e){ btn.disabled=false; btn.textContent='Reintentar'; setErr('No se pudo completar la tarea: '+(e.message||e)); }
+  }
+  async function retryCreate(uid,btn){
+    if(!hasConn){ setErr('No hay conector de Zoho.'); return; }
+    var arr=loadStore(); var it=null; for(var i=0;i<arr.length;i++){ if(arr[i].uid===uid){ it=arr[i]; break; } }
+    if(!it) return;
+    btn.disabled=true; btn.textContent='Reintentando…'; setErr('');
+    document.getElementById('log').style.display='block'; log('▶ Reintentando creación: '+(it.name||''),'ev');
+    var res=await processOne(it.data);
+    updateStore(uid,function(x){ x.createdOk=res.createdOk; x.dealId=res.dealId; x.name=res.name; x.evid=res.evid; x.error=res.error; x.tasks=res.tasks; x.ts=Date.now(); });
+    log(res.createdOk?'✓ Evento creado':'✕ Siguió fallando: '+(res.error||''), res.createdOk?'ok':'bad');
+    renderPanel();
+  }
+
+  /* ---------- Ejecutar carga (lote) ---------- */
   async function run(){
     setErr('');
-    if(!(window.cowork&&window.cowork.callMcpTool)){ setErr('No hay conector de Zoho. Abrí la herramienta en Cowork con el conector conectado.'); return; }
+    if(!hasConn){ setErr('No hay conector de Zoho. Abrí la herramienta en Cowork con el conector conectado.'); return; }
     var bs=Array.prototype.slice.call(blocksEl.querySelectorAll('.block'));
     var datas=bs.map(readBlock);
     var problems=[];
     datas.forEach(function(d,i){ var miss=[]; if(!d.contacto)miss.push('contacto'); if(!d.fase)miss.push('fase'); if(!d.fuente)miss.push('fuente'); if(!d.tipo)miss.push('tipo'); if(!d.fecha)miss.push('fecha'); if(!d.lugarId)miss.push('lugar'); if(!d.clase)miss.push('clase'); if(miss.length)problems.push('Evento '+(i+1)+': faltan '+miss.join(', ')); });
     if(problems.length){ setErr(problems.join(' · ')); return; }
 
-    goBtn.disabled=true; document.getElementById('add').disabled=true; document.getElementById('done').style.display='none';
+    goBtn.disabled=true; document.getElementById('add').disabled=true; document.getElementById('dup').disabled=true; document.getElementById('done').style.display='none';
     document.getElementById('logb').innerHTML=''; document.getElementById('log').style.display='block';
-    var results=[], failed=0;
+    var okCreated=0, notCreated=0, withPending=0, consecFail=0, aborted=false;
     for(var i=0;i<datas.length;i++){
-      var head=log('▶ Evento '+(i+1)+' de '+datas.length,'ev'); head.className='ev';
-      try{ var name=await processEvent(datas[i]); results.push('✅ '+name); }
-      catch(e){ failed++; log('✕ Error: '+(e&&e.message?e.message:e),'bad'); results.push('❌ Evento '+(i+1)+': '+(e&&e.message?e.message:e)); }
+      log('▶ Evento '+(i+1)+' de '+datas.length,'ev');
+      var res=await processOne(datas[i]);
+      addToStore(res);
+      renderPanel();
+      if(res.createdOk){ okCreated++; if(pendingCount(res)>0) withPending++; consecFail=0; }
+      else { notCreated++; consecFail++; }
+      if(consecFail>=2 && i<datas.length-1){ aborted=true; log('⛔ Se frenó el lote: 2 eventos seguidos no se pudieron crear (conector inestable). Los restantes NO se cargaron.','bad'); break; }
     }
-    goBtn.disabled=false; document.getElementById('add').disabled=false;
+    goBtn.disabled=false; document.getElementById('add').disabled=false; document.getElementById('dup').disabled=false;
     var done=document.getElementById('done'); done.style.display='block';
-    done.textContent=(failed===0?'✅ Listo — '+results.length+' evento(s) creado(s):\n':'Terminado con '+failed+' error(es):\n')+results.join('\n');
+    var msg='';
+    if(notCreated===0 && withPending===0){ msg='✅ Listo — '+okCreated+' evento(s) creado(s), todas las tareas completas.'; }
+    else{ msg='Terminado: '+okCreated+' creado(s)'+(withPending?(', '+withPending+' con tareas pendientes'):'')+(notCreated?(', '+notCreated+' NO creado(s)'):'')+'.\nRevisá el panel de seguimiento abajo para completar lo que falta.'; }
+    if(aborted) msg+='\n⛔ El lote se frenó por inestabilidad del conector: cargá los eventos restantes más tarde.';
+    done.textContent=msg;
   }
   goBtn.addEventListener('click',run);
+
+  /* ---------- Init ---------- */
   addBlock();
   loadSalones();
+  renderPanel();
 </script>
-<datalist id="tipos"><option>Fiesta</option><option>After</option><option>Aniv</option><option>Bar</option><option>Bat</option><option>Batalla Dj</option><option>Bautismo</option><option>Casamiento</option><option>Cumpleaños</option><option>Corporativo</option></datalist>
 </body>
 </html>
