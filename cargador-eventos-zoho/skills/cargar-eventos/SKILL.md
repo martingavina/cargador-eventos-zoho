@@ -9,7 +9,7 @@ Esta skill abre una herramienta visual (formulario) para cargar uno o varios eve
 
 ## Configuración (editada al publicar cada versión)
 
-- `LOCAL_VERSION = 1.0.1`  (versión de ESTA copia instalada del plugin; coincide con plugin.json)
+- `LOCAL_VERSION = 1.0.2`  (versión de ESTA copia instalada del plugin; coincide con plugin.json)
 - `MARKETPLACE_RAW_URL = https://raw.githubusercontent.com/martingavina/cargador-eventos-zoho/main/.claude-plugin/marketplace.json`  (URL "raw" del marketplace.json publicado)
 
 ## Paso 1 — Chequeo de versión (obligatorio, primero)
@@ -46,5 +46,6 @@ Esta skill abre una herramienta visual (formulario) para cargar uno o varios eve
 ## Notas de funcionamiento (para responder dudas)
 
 - La herramienta crea cada oportunidad con `Nombre de oportunidad = "A"` (Zoho la renombra sola con el ID de evento), resuelve Contacto, Lugar (módulo `ABM_Salones`) y Clase de evento (módulo `Condiciones_de_Salon`, filtrada por el salón), crea la oportunidad, cierra la actividad "Revisar nueva Oportunidad asignada", y crea las asignaciones de DJ con Estado del evento = Confirmado, Tipo = DJ, Estado = Borrador.
+- Reintenta automáticamente ante errores transitorios (503/timeout) y lleva un panel de seguimiento con checklist de tareas por evento (persistente).
 - El "Propietario" de los registros queda como el usuario del conector de Zoho de cada persona.
 - El campo Productor es un lookup a usuario: la herramienta avisa que se cargue a mano.
