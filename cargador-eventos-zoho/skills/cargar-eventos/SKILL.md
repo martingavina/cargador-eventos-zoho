@@ -9,7 +9,7 @@ Esta skill abre una herramienta visual (formulario) para cargar uno o varios eve
 
 ## Configuración (editada al publicar cada versión)
 
-- `LOCAL_VERSION = 1.0.2`  (versión de ESTA copia instalada del plugin; coincide con plugin.json)
+- `LOCAL_VERSION = 1.0.3`  (versión de ESTA copia instalada del plugin; coincide con plugin.json)
 - `MARKETPLACE_RAW_URL = https://raw.githubusercontent.com/martingavina/cargador-eventos-zoho/main/.claude-plugin/marketplace.json`  (URL "raw" del marketplace.json publicado)
 
 ## Paso 1 — Chequeo de versión (obligatorio, primero)
