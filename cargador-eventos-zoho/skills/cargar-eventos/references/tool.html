@@ -105,7 +105,7 @@
 <script>
   var TOOL_VERSION='__TOOL_VERSION__';
   var Z='__ZOHO_PREFIX__';
-  var T={ search:Z+'searchRecords', coql:Z+'executeCOQLQuery', create:Z+'createRecords', update:Z+'updateRecord', related:Z+'getRelatedRecords', get:Z+'getRecord', list:Z+'getRecords' };
+  var T={ search:Z+'searchRecords', coql:Z+'executeCOQLQuery', create:Z+'createRecords', update:Z+'updateRecord', get:Z+'getRecord', list:Z+'getRecords' };
   var STORE='cezPanel_v1';
   var SALONES_OPTS='';
   var showHist=false;
@@ -207,21 +207,22 @@
   function esc(s){ return (''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function isTransient(m){ m=(''+m).toLowerCase();
     return m.indexOf('503')>-1||m.indexOf('502')>-1||m.indexOf('504')>-1||m.indexOf('500')>-1||m.indexOf('timeout')>-1||m.indexOf('timed out')>-1||m.indexOf('unavailable')>-1||m.indexOf('rate')>-1||m.indexOf('too many')>-1||m.indexOf('internal server')>-1||m.indexOf('network')>-1||m.indexOf('failed to fetch')>-1; }
+  function friendly(m){ m=''+m; if(m.indexOf('allowlist')>-1||m.indexOf('not in this artifact')>-1) return 'La herramienta no se abrió con todos los permisos de Zoho. Cerrá y volvé a abrir el cargador (pedile a Claude "abrí el cargador de eventos") y reintentá.'; return m; }
   async function call(name,args,opts){ opts=opts||{}; var tries=opts.tries||4; var lastErr;
     for(var i=0;i<tries;i++){
       try{
         var r=await window.cowork.callMcpTool(name,args); var p;
         if(r&&r.structuredContent) p=r.structuredContent; else if(r&&r.content&&r.content[0]&&r.content[0].text){ try{p=JSON.parse(r.content[0].text);}catch(e){p=r.content[0].text;} } else p=r;
-        if(r&&r.isError){ var msg=typeof p==='string'?p:JSON.stringify(p); if(isTransient(msg)&&i<tries-1){ await sleep(1300*(i+1)); continue; } throw new Error(msg); }
+        if(r&&r.isError){ var msg=typeof p==='string'?p:JSON.stringify(p); if(isTransient(msg)&&i<tries-1){ await sleep(1300*(i+1)); continue; } throw new Error(friendly(msg)); }
         return p;
-      }catch(e){ lastErr=e; var m=(e&&e.message)?e.message:(''+e); if(isTransient(m)&&i<tries-1){ await sleep(1300*(i+1)); continue; } throw e; }
+      }catch(e){ lastErr=e; var m=(e&&e.message)?e.message:(''+e); if(isTransient(m)&&i<tries-1){ await sleep(1300*(i+1)); continue; } throw new Error(friendly(m)); }
     }
     throw lastErr; }
   function rowsOf(p){ return (p&&p.data&&p.data.data)?p.data.data:[]; }
-  async function createOne(module,body,tries){
+  async function createOne(module,body,tries){ // createRecords con chequeo de code por-registro + reintento transitorio
     var t=tries||4;
     for(var i=0;i<t;i++){
-      var p=await call(T.create,{path_variables:{module:module},body:{data:[body],trigger:['workflow']}},{tries:1}).catch(function(e){return {__err:e};});
+      var p=await call(module==='__deal'?T.create:T.create,{path_variables:{module:module},body:{data:[body],trigger:['workflow']}},{tries:1}).catch(function(e){return {__err:e};});
       if(p&&p.__err){ var m=(p.__err.message||'')+''; if(isTransient(m)&&i<t-1){ await sleep(1300*(i+1)); continue; } throw p.__err; }
       var row=(p&&p.data&&p.data.data&&p.data.data[0])||{};
       if(row.code==='SUCCESS'){ return row.details.id; }
@@ -257,13 +258,14 @@
     return await createOne('Deals',deal);
   }
   async function closeActivity(dealId){
-    var closed=false;
-    for(var a=0;a<6&&!closed;a++){ await sleep(1400);
-      var tr=await call(T.related,{path_variables:{parentRecordModule:'Deals',parentRecord:dealId,relatedList:'Tasks'},query_params:{fields:'Subject,Status'}});
-      var tg=rowsOf(tr).filter(function(t){return(''+t.Subject).indexOf('Revisar nueva Oportunidad asignada')===0 && (''+t.Status).toLowerCase()!=='terminada';})[0];
-      var already=rowsOf(tr).filter(function(t){return(''+t.Subject).indexOf('Revisar nueva Oportunidad asignada')===0 && (''+t.Status).toLowerCase()==='terminada';})[0];
-      if(already){ return true; }
-      if(tg){ await call(T.update,{path_variables:{module:'Tasks',recordID:tg.id},body:{data:[{Status:'Terminada'}]}}); return true; }
+    for(var a=0;a<6;a++){ await sleep(1400);
+      var q=await call(T.coql,{body:{select_query:"select id, Subject, Status from Tasks where What_Id = '"+dealId+"'"}});
+      var target=rowsOf(q).filter(function(t){return(''+t.Subject).indexOf('Revisar nueva Oportunidad asignada')===0;})[0];
+      if(target){
+        if((''+target.Status).toLowerCase()==='terminada') return true;
+        await call(T.update,{path_variables:{module:'Tasks',recordID:target.id},body:{data:[{Status:'Terminada'}]}});
+        return true;
+      }
     }
     return false;
   }
@@ -284,8 +286,10 @@
     var tasks=[{key:'act',label:'Actividad "Revisar nueva Oportunidad asignada" completada',done:false}];
     rolesOf(d).forEach(function(role){ tasks.push({key:'dj|'+role,label:'Asignación '+role+' (Borrador)',done:false}); });
 
+    // Actividad
     try{ log('Cerrando actividad automática…'); tasks[0].done=await closeActivity(dealId); log(tasks[0].done?'✓ Actividad completada':'• Actividad pendiente','info'); }
     catch(e){ tasks[0].done=false; log('• Actividad pendiente ('+(e.message||e)+')','info'); }
+    // Asignaciones
     for(var k=1;k<tasks.length;k++){ var role=tasks[k].key.split('|')[1];
       try{ log('Asignación '+role+'…'); await createAssignment(dealId,role); tasks[k].done=true; log('✓ '+role,'ok'); }
       catch(e){ tasks[k].done=false; log('• '+role+' pendiente ('+(e.message||e)+')','info'); } }
@@ -306,6 +310,7 @@
     var body=document.getElementById('panelBody'); body.innerHTML='';
     var alert=document.getElementById('alert');
     var visible=arr.filter(function(it){ return showHist ? true : !it.dismissed; });
+    // Aviso central
     var nNoCreado=arr.filter(function(it){return !it.dismissed && !it.createdOk;}).length;
     var nPend=arr.filter(function(it){return !it.dismissed && it.createdOk && pendingCount(it)>0;}).length;
     alert.className='alert'; alert.style.display='none';
@@ -390,6 +395,7 @@
       renderPanel();
       if(res.createdOk){ okCreated++; if(pendingCount(res)>0) withPending++; consecFail=0; }
       else { notCreated++; consecFail++; }
+      // Freno de lote: si el conector parece caído (2 no-creados seguidos), frenamos para no seguir generando trabajo a medias
       if(consecFail>=2 && i<datas.length-1){ aborted=true; log('⛔ Se frenó el lote: 2 eventos seguidos no se pudieron crear (conector inestable). Los restantes NO se cargaron.','bad'); break; }
     }
     goBtn.disabled=false; document.getElementById('add').disabled=false; document.getElementById('dup').disabled=false;
