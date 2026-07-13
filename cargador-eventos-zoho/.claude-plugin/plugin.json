@@ -1,6 +1,6 @@
 {
   "name": "cargador-eventos-zoho",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Cargador de eventos (oportunidades) en Zoho CRM: crea la oportunidad, cierra la actividad automática y genera las asignaciones de DJ. Soporta carga de varios eventos y detección de duplicados.",
   "author": {
     "name": "Sarapura"
